@@ -4,7 +4,7 @@ import {assoc, batch, sleep, chunk, now} from '@welshman/lib'
 import type {SignedEvent} from '@welshman/util'
 import {isShareableRelayUrl} from '@welshman/util'
 import {subscribe} from '@welshman/net'
-import type {SubscribeRequest} from '@welshman/net'
+import type {SubscribeRequest, Subscription} from '@welshman/net'
 
 export const day = 86400
 
@@ -83,6 +83,8 @@ export const loadPubkeyInfo = async (pubkey: string) => {
   return follows
 }
 
+let sub: Subscription
+
 export const loadData = async () => {
   const $people = get(people)
   const $follows = get(follows)
@@ -113,25 +115,35 @@ export const loadData = async () => {
     })
   }
 
+  const onEvent = batch(300, (events: SignedEvent[]) => {
+    people.update($p => {
+      for (const e of events) {
+        const profile = $p[e.pubkey] || getDefaultPerson(e.pubkey)
+
+        profile.events.push(e)
+
+        $p[e.pubkey] = profile
+      }
+
+      return $p
+    })
+  })
+
   for (const authors of chunk(100, $follows)) {
     await load({
       relays,
+      onEvent,
       filters: [{authors, kinds: [1], since: now() - $daysAgo * day}],
-      onEvent: batch(300, (events: SignedEvent[]) => {
-        people.update($p => {
-          for (const e of events) {
-            const profile = $p[e.pubkey] || getDefaultPerson(e.pubkey)
-
-            profile.events.push(e)
-
-            $p[e.pubkey] = profile
-          }
-
-          return $p
-        })
-      }),
     })
   }
+
+  sub?.close()
+  sub = subscribe({
+    relays,
+    filters: [{authors: $follows.slice(0, 1000), kinds: [1], since: now()}],
+  })
+
+  sub.emitter.on('event', (url: string, e: SignedEvent) => onEvent(e))
 }
 
 // Nip07

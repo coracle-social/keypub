@@ -1,6 +1,7 @@
 <script lang="ts">
   import {nip19} from 'nostr-tools'
   import {onMount} from 'svelte'
+  import {fly} from 'svelte/transition'
   import {derived, writable} from 'svelte/store'
   import {seconds, quantify} from "hurdak"
   import {sortBy, now, first, max} from '@welshman/lib'
@@ -121,9 +122,6 @@
       </div>
       <Skeleton />
       <Skeleton />
-      <Skeleton />
-      <Skeleton />
-      <Skeleton />
     </div>
   {:else if status === "ready"}
     <div class="p-20 pt-4 flex flex-col gap-4" bind:this={element}>
@@ -143,8 +141,8 @@
           </button>
         </div>
       </div>
-      {#each $rows.slice(0, limit) as row}
-        <div class="card bg-base-100 shadow-xl">
+      {#each $rows.slice(0, limit) as row (row.pubkey)}
+        <div in:fly={{y: 20}} class="card bg-base-100 shadow-xl">
           <div class="card-body flex-row justify-between">
             <div class="flex gap-4 items-start">
               <div class="shrink-0 w-8 h-8 rounded-full bg-gray-700 bg-cover bg-center overflow-hidden">
