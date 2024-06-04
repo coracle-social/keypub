@@ -2,12 +2,13 @@
   import {nip19} from 'nostr-tools'
   import {onMount} from 'svelte'
   import {fly} from 'svelte/transition'
-  import {derived, writable} from 'svelte/store'
+  import {get, derived, writable} from 'svelte/store'
   import {seconds, quantify} from "hurdak"
   import {sortBy, now, first, max} from '@welshman/lib'
+  import {parse, render as renderParsed, truncate, ParsedType} from '@welshman/content'
   import type {Person} from './core'
   import Skeleton from './Skeleton.svelte'
-  import {login, loadData, pubkey, follows, createScroller, day, people, relays, maxPosts, daysAgo} from './core'
+  import {login, loadData, pubkey, follows, createScroller, day, people, contentRelays, maxPosts, daysAgo} from './core'
 
   const {locale} = new Intl.DateTimeFormat().resolvedOptions()
 
@@ -41,13 +42,9 @@
 
   const njump = (path: string) => `https://njump.me/${path}`
 
-  const njumpEvent = (id: string) => njump(nip19.neventEncode({id, relays}))
+  const njumpEvent = (id: string) => njump(nip19.neventEncode({id, relays: contentRelays}))
 
-  const njumpProfile = (pubkey: string) => njump(nip19.nprofileEncode({pubkey, relays}))
-
-  const coracle = (path: string) => `https://coracle.social/${path}`
-
-  const coracleProfile = (pubkey: string) => coracle(nip19.nprofileEncode({pubkey, relays}))
+  const njumpProfile = (pubkey: string) => njump(nip19.nprofileEncode({pubkey, relays: contentRelays}))
 
   const rows = derived([maxPosts, daysAgo, people], ([$maxPosts, $daysAgo, $people]) => {
     return sortBy(
@@ -71,9 +68,17 @@
 
   const init = async () => {
     status = "loading"
+
     await login()
-    await loadData()
-    status = "ready"
+
+    if (get(follows).length === 0) {
+      status = "new"
+      pubkey.set("")
+      alert("We weren't able to find your follows list. Please try again.")
+    } else {
+      await loadData()
+      status = "ready"
+    }
   }
 
   const reload = async () => {
@@ -93,9 +98,11 @@
     }
   }
 
-  if ($pubkey) {
-    reload()
-  }
+  onMount(() => {
+    if ($pubkey) {
+      reload()
+    }
+  })
 </script>
 
 <main class="bg-base-200 min-h-screen">
@@ -163,12 +170,16 @@
                     &bull;
                     {quantify(row.events.length, 'post')} found in the last {quantify($daysAgo, 'day')}
                   </div>
+                  <p class="pl-2 border-l-2 border-solid border-base-400 mt-4 note-content" style="margin-left: -9px">
+                    {#each truncate(parse(row.last_post)) as parsed}
+                      {@html renderParsed(parsed)}
+                    {/each}
+                  </p>
                 {:else}
                   <p>No recent posts found<p>
                 {/if}
               </div>
             </div>
-            <a class="link" target="_blank" href={coracleProfile(row.pubkey)}>Open in coracle</a>
           </div>
         </div>
       {/each}

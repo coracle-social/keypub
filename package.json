@@ -1,7 +1,7 @@
 {
   "name": "keypub",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +23,7 @@
     "vite": "^5.2.0"
   },
   "dependencies": {
+    "@welshman/content": "^0.0.2",
     "@welshman/lib": "^0.0.8",
     "@welshman/net": "^0.0.11",
     "@welshman/util": "^0.0.11",

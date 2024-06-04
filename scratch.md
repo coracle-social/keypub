@@ -1,3 +1,0 @@
-- [ ] listen for new posts
-- [ ] Sync based on existing posts
-- [ ] Move parseNote to welshman, show feed inline

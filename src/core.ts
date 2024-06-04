@@ -8,12 +8,16 @@ import type {SubscribeRequest, Subscription} from '@welshman/net'
 
 export const day = 86400
 
-export const relays = [
+export const indexerRelays = [
   "wss://purplepag.es",
   "wss://relay.damus.io",
   "wss://relay.nostr.band",
+]
+
+export const contentRelays = [
+  "wss://relay.damus.io",
   "wss://relay.snort.social",
-  "wss://nostr.wine",
+  "wss://nos.lol",
 ]
 
 export type MySubscribeRequest = SubscribeRequest & {
@@ -69,12 +73,12 @@ export const people = writable<Record<string, Person>>({})
 
 // Loaders
 
-export const loadPubkeyInfo = async (pubkey: string) => {
+export const loadUserFollows = async () => {
   let follows: string[] = []
 
   await load({
-    relays,
-    filters: [{authors: [pubkey], kinds: [3]}],
+    relays: indexerRelays,
+    filters: [{authors: [get(pubkey)], kinds: [3]}],
     onEvent: (e: SignedEvent) => {
       follows = e.tags.filter(t => t[0] === 'p').map(t => t[1])
     },
@@ -95,7 +99,7 @@ export const loadData = async () => {
 
   if (missingProfilePubkeys.length > 0) {
     await load({
-      relays,
+      relays: indexerRelays,
       filters: [{authors: missingProfilePubkeys, kinds: [0]}],
       onEvent: batch(300, (events: SignedEvent[]) => {
         people.update($p => {
@@ -129,17 +133,22 @@ export const loadData = async () => {
     })
   })
 
-  for (const authors of chunk(100, $follows)) {
-    await load({
-      relays,
-      onEvent,
-      filters: [{authors, kinds: [1], since: now() - $daysAgo * day}],
-    })
+  // Double chunk so we can make sure to get results for all pubkeys, while also only asking for 100 at a time.
+  for (const authorsChunk of chunk(10, chunk(10, $follows))) {
+    await Promise.all(
+      authorsChunk.map(authors =>
+        load({
+          relays: contentRelays,
+          filters: [{authors, kinds: [1], since: now() - $daysAgo * day}],
+          onEvent,
+        })
+      )
+    )
   }
 
   sub?.close()
   sub = subscribe({
-    relays,
+    relays: contentRelays,
     filters: [{authors: $follows.slice(0, 1000), kinds: [1], since: now()}],
   })
 
@@ -160,10 +169,8 @@ export const withExtension = (f: (ext: any) => void) => {
 
 export const login = () =>
   withExtension(async ext => {
-    const $pubkey = await ext.getPublicKey()
-
-    follows.set(await loadPubkeyInfo($pubkey))
-    pubkey.set($pubkey)
+    pubkey.set(await ext.getPublicKey())
+    follows.set(await loadUserFollows())
   })
 
 // Utils
