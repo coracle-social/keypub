@@ -1,3 +1,4 @@
+import * as nl from 'nostr-login'
 import {throttle} from 'throttle-debounce'
 import {writable, get} from 'svelte/store'
 import {assoc, batch, sleep, chunk, now} from '@welshman/lib'
@@ -73,18 +74,18 @@ export const people = writable<Record<string, Person>>({})
 
 // Loaders
 
-export const loadUserFollows = async () => {
-  let follows: string[] = []
+export const loadFollows = async () => {
+  let pubkeys: string[] = []
 
   await load({
     relays: indexerRelays,
     filters: [{authors: [get(pubkey)], kinds: [3]}],
     onEvent: (e: SignedEvent) => {
-      follows = e.tags.filter(t => t[0] === 'p').map(t => t[1])
+      pubkeys = e.tags.filter(t => t[0] === 'p').map(t => t[1])
     },
   })
 
-  return follows
+  follows.set(pubkeys)
 }
 
 let sub: Subscription
@@ -155,23 +156,29 @@ export const loadData = async () => {
   sub.emitter.on('event', (url: string, e: SignedEvent) => onEvent(e))
 }
 
-// Nip07
+// Auth
 
-let lock = Promise.resolve()
+nl.init({noBanner: true})
 
-export const getExtension = () => (window as {nostr?: any}).nostr
+export const loginUser = () => {
+  nl.launch()
 
-export const withExtension = (f: (ext: any) => void) => {
-  lock = lock.then(() => f(getExtension()))
+  return new Promise<void>(resolve => {
+    document.addEventListener('nlAuth', async (e: any) => {
+      if (e.detail.pubkey) {
+        pubkey.set(e.detail.pubkey)
+      }
 
-  return lock
+      resolve()
+    }, {once: true})
+  })
 }
 
-export const login = () =>
-  withExtension(async ext => {
-    pubkey.set(await ext.getPublicKey())
-    follows.set(await loadUserFollows())
-  })
+export const logoutUser = () => {
+  nl.logout()
+  pubkey.set("")
+  follows.set([])
+}
 
 // Utils
 

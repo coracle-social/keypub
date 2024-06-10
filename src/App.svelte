@@ -8,7 +8,7 @@
   import {parse, render as renderParsed, truncate, ParsedType} from '@welshman/content'
   import type {Person} from './core'
   import Skeleton from './Skeleton.svelte'
-  import {login, loadData, pubkey, follows, createScroller, day, people, contentRelays, maxPosts, daysAgo} from './core'
+  import {loginUser, logoutUser, loadFollows, loadData, pubkey, follows, createScroller, day, people, contentRelays, maxPosts, daysAgo} from './core'
 
   const {locale} = new Intl.DateTimeFormat().resolvedOptions()
 
@@ -67,24 +67,37 @@
   }
 
   const init = async () => {
+    await loginUser()
+
+    if (!get(pubkey)) {
+      status = "new"
+      return
+    }
+
     status = "loading"
 
-    await login()
+    await loadFollows()
 
     if (get(follows).length === 0) {
       status = "new"
       pubkey.set("")
       alert("We weren't able to find your follows list. Please try again.")
-    } else {
-      await loadData()
-      status = "ready"
+      return
     }
+
+    await loadData()
+    status = "ready"
   }
 
   const reload = async () => {
     status = "loading"
     await loadData()
     status = "ready"
+  }
+
+  const logout = () => {
+    logoutUser()
+    status = "new"
   }
 
   let element: any
@@ -142,10 +155,15 @@
             <label for="daysAgo" >Show results from up to {quantify($daysAgo, 'day')} ago</label>
             <input name="daysAgo" type="range" bind:value={$daysAgo} min="1" max="60" class="range" />
           </div>
-          <button class="btn" on:click={reload}>
-            <svg fill="#000000" class="w-4 h-4" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 489.645 489.645" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M460.656,132.911c-58.7-122.1-212.2-166.5-331.8-104.1c-9.4,5.2-13.5,16.6-8.3,27c5.2,9.4,16.6,13.5,27,8.3 c99.9-52,227.4-14.9,276.7,86.3c65.4,134.3-19,236.7-87.4,274.6c-93.1,51.7-211.2,17.4-267.6-70.7l69.3,14.5 c10.4,2.1,21.8-4.2,23.9-15.6c2.1-10.4-4.2-21.8-15.6-23.9l-122.8-25c-20.6-2-25,16.6-23.9,22.9l15.6,123.8 c1,10.4,9.4,17.7,19.8,17.7c12.8,0,20.8-12.5,19.8-23.9l-6-50.5c57.4,70.8,170.3,131.2,307.4,68.2 C414.856,432.511,548.256,314.811,460.656,132.911z"></path> </g> </g></svg>
-            Refresh posts
-          </button>
+          <div class="flex gap-3">
+            <button class="btn flex-grow" on:click={reload}>
+              <svg fill="#000000" class="w-4 h-4" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 489.645 489.645" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M460.656,132.911c-58.7-122.1-212.2-166.5-331.8-104.1c-9.4,5.2-13.5,16.6-8.3,27c5.2,9.4,16.6,13.5,27,8.3 c99.9-52,227.4-14.9,276.7,86.3c65.4,134.3-19,236.7-87.4,274.6c-93.1,51.7-211.2,17.4-267.6-70.7l69.3,14.5 c10.4,2.1,21.8-4.2,23.9-15.6c2.1-10.4-4.2-21.8-15.6-23.9l-122.8-25c-20.6-2-25,16.6-23.9,22.9l15.6,123.8 c1,10.4,9.4,17.7,19.8,17.7c12.8,0,20.8-12.5,19.8-23.9l-6-50.5c57.4,70.8,170.3,131.2,307.4,68.2 C414.856,432.511,548.256,314.811,460.656,132.911z"></path> </g> </g></svg>
+              Refresh posts
+            </button>
+            <button class="btn" on:click={logout}>
+              Log out
+            </button>
+          </div>
         </div>
       </div>
       {#each $rows.slice(0, limit) as row (row.pubkey)}

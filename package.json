@@ -28,6 +28,7 @@
     "@welshman/net": "^0.0.11",
     "@welshman/util": "^0.0.11",
     "hurdak": "^0.2.10",
+    "nostr-login": "^1.4.4",
     "nostr-tools": "^2.7.0",
     "throttle-debounce": "^5.0.0"
   }
